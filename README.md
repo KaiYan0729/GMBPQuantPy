@@ -1,2 +1,3 @@
 # GMBPQuantPy
-GMBP Python Quant Repo
+
+GMBP Python Quant Repository
