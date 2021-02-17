@@ -1,11 +1,14 @@
 import unittest
 import os
-from gmbp_quant.static import get_library_root
+from gmbp_quant.static import get_project_root
 
 
 class TestStatic(unittest.TestCase):
-    def test_library_root(self):
-        self.assertEqual(os.path.basename(get_library_root()), 'gmbp_quant')
+    def test_project_root(self):
+        project_root = get_project_root()
+        folders = {folder for folder in os.listdir(project_root)
+                   if os.path.isdir(os.path.join(project_root, folder)) and '.' not in folder}
+        self.assertEqual(folders, {'gmbp_quant','test'})
     #
 #
 
