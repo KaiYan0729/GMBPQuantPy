@@ -8,7 +8,7 @@ class TestStatic(unittest.TestCase):
         project_root = get_project_root()
         folders = {folder for folder in os.listdir(project_root)
                    if os.path.isdir(os.path.join(project_root, folder)) and '.' not in folder}
-        self.assertEqual(folders, {'gmbp_quant','test'})
+        self.assertEqual(folders, {'gmbp_quant','test','notebook'})
     #
 #
 
