@@ -1,6 +1,11 @@
 import pandas as pd
 from datetime import datetime, timedelta
-import pytz
+from dateutil.relativedelta import relativedelta
+import pytz, re
+from gmbp_quant.common.utils.miscs import iterable_to_tuple
+
+from gmbp_quant.common.logger import LOG
+logger = LOG.get_logger(__name__)
 
 
 def datetime_to_dateid(date):
@@ -80,6 +85,16 @@ def get_biz_dateids(start_dateid, end_dateid):
 #
 
 
+def prev_biz_dateid(dateid):
+    one_day = timedelta(days=1)
+    next_day = dateid_to_datetime(dateid) - one_day
+    while not is_weekday(date=next_day):
+        next_day -= one_day
+    #
+    return datetime_to_dateid(next_day)
+#
+
+
 def next_biz_dateid(dateid):
     one_day = timedelta(days=1)
     next_day = dateid_to_datetime(dateid) + one_day
@@ -87,6 +102,109 @@ def next_biz_dateid(dateid):
         next_day += one_day
     #
     return datetime_to_dateid(next_day)
+#
+
+
+def shift_biz_dates(dateid, offset_days):
+    if offset_days is None or not isinstance(offset_days, int):
+        logger.warn(f'Skipping since "offset_days" is None or not type(int) !')
+        return dateid
+    #
+
+    shift_func = prev_biz_dateid if offset_days<=0 else next_biz_dateid
+    offset_days = abs(offset_days)
+
+    for i in range(offset_days):
+        dateid = shift_func(dateid=dateid)
+    #
+
+    return dateid
+#
+
+
+def infer_biz_dateids(start_dateid=None, end_dateid=None, dateids=None):
+    if dateids is not None:
+        dateids = iterable_to_tuple(dateids, raw_type='int')
+        dateids = [dateid for dateid in dateids if not is_weekday(dateid)]
+    else:
+        if start_dateid is None or end_dateid is None:
+            raise ValueError(f'Please provide either "dateids" or ("start_dateid", "end_dateid") !')
+        #
+
+        if isinstance(start_dateid, str):
+            start_dateid = int(start_dateid)
+        elif isinstance(start_dateid, datetime):
+            start_dateid = datetime_to_dateid(start_dateid)
+        #
+
+        if isinstance(end_dateid, str):
+            end_dateid = int(end_dateid)
+        elif isinstance(end_dateid, datetime):
+            end_dateid = datetime_to_dateid(end_dateid)
+        #
+
+        dateids = get_biz_dateids(start_dateid=start_dateid, end_dateid=end_dateid)
+    #
+
+    return dateids
+#
+
+
+def infer_start_dateid_end_dateid(start_date=None, end_date=None, date_range_mode='SINGLE_DATE'):
+    if start_date is None and end_date is None:
+        raise ValueError(f'"start_date" and "end_date" cannot be both None !')
+    #
+
+    ctd = today()
+    if end_date in ['CTD', 'TODAY']:
+        end_date = ctd
+    elif end_date in ['PTD', 'YEST']:
+        end_date = prev_biz_dateid(dateid=ctd)
+    #
+
+    end_date = int(end_date)
+    if not is_weekday(end_date):
+        end_date = prev_biz_dateid(dateid=end_date)
+    #
+
+    if start_date is not None:
+        start_date = int(start_date)
+        if not is_weekday(start_date):
+            start_date = next_biz_dateid(dateid=start_date)
+        #
+        if start_date <= end_date:
+            return start_date, end_date
+        else:
+            logger.error(f'Inconsistency found: start_date={start_date} > end_date={end_date} ! '
+                         f'start_date will be re-inferred by date_range_mode={date_range_mode} instead.')
+        #
+    #
+
+    ndays_matched = re.match(r'(\d+)D$', date_range_mode, re.IGNORECASE)
+
+    if date_range_mode == 'SINGLE_DATE':
+        start_date = end_date
+    elif date_range_mode == 'ROLLING_WEEK':
+        start_date = shift_biz_dates(dateid=end_date, offset_days=-4)
+    elif date_range_mode == 'MTD':
+        start_date = int(end_date/100.0) + 1
+        if not is_weekday(date=start_date):
+            start_date = next_biz_dateid(dateid=start_date)
+        #
+    elif date_range_mode == 'ROLLING_MONTH':
+        start_date = dateid_to_datetime(dateid=end_date) - relativedelta(months=1)
+        start_date = datetime_to_dateid(date=start_date)
+        if not is_weekday(date=start_date):
+            start_date = next_biz_dateid(dateid=start_date)
+        #
+    elif ndays_matched is not None:
+        ndays = int(ndays_matched.group()[0])
+        start_date = shift_biz_dates(dateid=end_date, offset_days=-(ndays-1))
+    else:
+        raise ValueError(f'date_range_mode={date_range_mode} is not supported in [SINGLE_DATE|ROLLING_WEEK|MTD|ROLLING_MONTH|*D] !')
+    #
+
+    return start_date, end_date
 #
 
 

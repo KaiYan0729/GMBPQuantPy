@@ -57,6 +57,22 @@ class TestDateTimeUtils(ut.TestCase):
         benchmark = datetime(2020, 2, 10, 16, 45, 23, tzinfo=pytz.timezone('Asia/Shanghai'))
         self.assertEqual(target.strftime('%Y%m%d-%H%M%d'), benchmark.strftime('%Y%m%d-%H%M%d'))
     #
+    
+    def test_infer_biz_dateids(self):
+        biz_dateids = dtu.infer_biz_dateids(start_dateid=20210211, end_dateid=20210216)
+        self.assertEqual(biz_dateids, [20210211, 20210212, 20210215, 20210216])
+    #
+
+    def test_infer_start_dateid_end_dateid(self):
+        start_dateid, end_dateid = dtu.infer_start_dateid_end_dateid(end_date=20210218, date_range_mode='SINGLE_DATE')
+        self.assertEqual((start_dateid, end_dateid), (20210218, 20210218))
+
+        start_dateid, end_dateid = dtu.infer_start_dateid_end_dateid(end_date=20210218, date_range_mode='ROLLING_WEEK')
+        self.assertEqual((start_dateid, end_dateid), (20210212, 20210218))
+
+        start_dateid, end_dateid = dtu.infer_start_dateid_end_dateid(start_date=20210213, end_date=20210218)
+        self.assertEqual((start_dateid, end_dateid), (20210215, 20210218))
+    #
 #
 
 
